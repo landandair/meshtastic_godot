@@ -7,12 +7,6 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::JoinHandle;
 use anyhow::{Result};
 
-
-pub fn create_serial_connection(port: &String) -> Connection {
-    let conn = Connection::Serial(port.clone());
-    conn
-}
-
 pub fn create_thread_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>, Sender<IPCMessage>, Receiver<IPCMessage>) {
     let (mut fromradio_thread_tx, mut fromradio_thread_rx) =
         channel::<IPCMessage>(100);
