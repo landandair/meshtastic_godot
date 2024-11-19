@@ -3,7 +3,6 @@ use meshtastic::protobufs::{FromRadio, MeshPacket};
 use meshtastic::types::NodeId;
 
 use std::{error::Error, fmt};
-use crate::router::DeviceUpdateError::PacketNotSupported;
 
 #[derive(Clone, Debug)]
 pub enum DeviceUpdateError {
@@ -64,11 +63,11 @@ impl Error for DeviceUpdateError {}
 pub struct MeshPacketApi;
 
 impl PacketRouter<(), DeviceUpdateError> for MeshPacketApi{
-    fn handle_packet_from_radio(&mut self, packet: FromRadio) -> Result<(), DeviceUpdateError> {
+    fn handle_packet_from_radio(&mut self, _packet: FromRadio) -> Result<(), DeviceUpdateError> {
         todo!()
     }
 
-    fn handle_mesh_packet(&mut self, packet: MeshPacket) -> Result<(), DeviceUpdateError> {
+    fn handle_mesh_packet(&mut self, _packet: MeshPacket) -> Result<(), DeviceUpdateError> {
         todo!()
     }
 

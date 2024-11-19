@@ -74,7 +74,7 @@ pub async fn process_packet(
                                             .unwrap();
                                         if let Some(v) = data.variant {
                                             match v {
-                                                telemetry::Variant::EnvironmentMetrics(env) => {
+                                                telemetry::Variant::EnvironmentMetrics(_env) => {
                                                     let mut cn = match node_list
                                                         .contains_key(&pa.from)
                                                     {
@@ -316,7 +316,7 @@ pub async fn process_packet(
 
                     return Some(PacketResponse::NodeUpdate(ni.num, Box::new(cn)));
                 }
-                from_radio::PayloadVariant::Config(cfg) => {
+                from_radio::PayloadVariant::Config(_cfg) => {
                     println!("Receiving DeviceConfig from device. UNUSED");
                     // match cfg.payload_variant {
                     //     None => {}
@@ -374,7 +374,7 @@ pub async fn process_packet(
                     }
                     return None;
                 }
-                from_radio::PayloadVariant::ModuleConfig(module_obj) => {
+                from_radio::PayloadVariant::ModuleConfig(_module_obj) => {
                     println!("Receiving ModulesConfig from device. UNUSED");
                     // if let Some(module) = module_obj.payload_variant {
                     //     let mut f = DEVICE_CONFIG.write().await;
@@ -409,8 +409,8 @@ pub async fn process_packet(
                         u
                     );
                 }
-                from_radio::PayloadVariant::Channel(c) => {
-                    let mut channelpacket = c.clone();
+                from_radio::PayloadVariant::Channel(_c) => {
+                    //let mut channelpacket = c.clone();
                     println!("Unimplemented channelPacket")
                 }
                 from_radio::PayloadVariant::QueueStatus(v) => {

@@ -1,6 +1,5 @@
 use godot::prelude::*;
 use godot::classes::{RefCounted, IRefCounted};
-use serialport::SerialPort;
 
 use meshtastic::api::ConnectedStreamApi;
 use meshtastic::utils;
@@ -9,7 +8,6 @@ use meshtastic::packet::PacketReceiver;
 use meshtastic::types::MeshChannel;
 use meshtastic::packet::PacketDestination;
 
-use crate::router::MeshPacketApi;
 use serialport::SerialPortType;
 use tokio::runtime::{Builder, Runtime};
 

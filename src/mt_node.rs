@@ -1,12 +1,12 @@
 use crate::connection::Connection;
 use crate::ipc::IPCMessage;
 use anyhow::{bail, Result};
-use godot::global::print;
-use meshtastic::packet::PacketRouter;
 
+use meshtastic::packet::PacketRouter;
 use meshtastic::protobufs::{FromRadio, MeshPacket};
 use meshtastic::types::NodeId;
 use meshtastic::{api::StreamApi, utils};
+
 use strum_macros::Display;
 use thiserror::Error;
 
@@ -45,7 +45,7 @@ impl PacketRouter<(), DeviceUpdateError> for MyPacketRouter {
 
 	fn handle_mesh_packet(
 		&mut self,
-		packet: MeshPacket,
+		_packet: MeshPacket,
 	) -> std::result::Result<(), DeviceUpdateError> {
 		println!("handle_mesh_packet called but not sure what to do here");
 		Ok(())
@@ -127,18 +127,18 @@ pub(crate) async fn meshtastic_loop(
 
 #[cfg(test)]
 mod test {
-	use tokio::io::stdout;
-use crate::ipc::IPCMessage;
+	use crate::ipc::IPCMessage;
 	use crate::mt_node::*;
 	use crate::packet_handler::{process_packet, MessageEnvelope, PacketResponse};
 	use crate::util::{get_secs, ComprehensiveNode};
 
 	use tokio::sync::mpsc;
 	use tokio::task::JoinHandle;
+
 	use meshtastic::utils::stream::available_serial_ports;
 	use meshtastic::packet::PacketDestination;
 	use meshtastic::types::MeshChannel;
-	use tokio::io::{AsyncWriteExt};
+
 	use std::collections::HashMap;
 
 	#[tokio::test]
