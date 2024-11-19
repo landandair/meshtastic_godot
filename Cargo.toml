@@ -1,0 +1,18 @@
+[package]
+name = "MeshtasticGodot"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+godot = { git = "https://github.com/godot-rust/gdext", branch = "master"}
+meshtastic = "*"
+serialport = "*"
+tokio = { version = "1.10", features = ["rt"] }
+anyhow = "1.0.93"
+strum = "0.26.3"
+thiserror = "1.0.68"
+strum_macros = "0.26.4"
+
+
+[lib]
+crate-type = ["cdylib"]
