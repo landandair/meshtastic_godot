@@ -1,6 +1,6 @@
-use crate::connection::Connection;
-use crate::ipc::IPCMessage;
-use crate::mt_node::meshtastic_loop;
+use crate::mesh_connection::connection::Connection;
+use crate::mesh_connection::ipc::IPCMessage;
+use crate::mesh_connection::mt_node::meshtastic_loop;
 
 
 use tokio::sync::mpsc::{channel, Receiver, Sender};

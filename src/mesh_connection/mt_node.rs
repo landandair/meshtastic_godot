@@ -1,5 +1,5 @@
-use crate::connection::Connection;
-use crate::ipc::IPCMessage;
+use crate::mesh_connection::connection::Connection;
+use crate::mesh_connection::ipc::IPCMessage;
 use anyhow::{bail, Result};
 
 use meshtastic::packet::PacketRouter;
@@ -78,7 +78,10 @@ pub(crate) async fn meshtastic_loop(
 			let serial_stream = utils::stream::build_serial_stream(device, None, None, None)
 				.expect("Unable to open serial port.");
 			(decoded_listener, connected_stream_api) = stream_api.connect(serial_stream).await;
-		}
+		},
+		Connection::BLE(_address) => {
+			panic!("BLE is not yet implemented into meshtastic-rust. Make a pr or request change when it is")
+		},
 		Connection::None => {
 			panic!("Neither tcp nor serial selected for connection.");
 		}
@@ -127,10 +130,10 @@ pub(crate) async fn meshtastic_loop(
 
 #[cfg(test)]
 mod test {
-	use crate::ipc::IPCMessage;
-	use crate::mt_node::*;
-	use crate::packet_handler::{process_packet, MessageEnvelope, PacketResponse};
-	use crate::util::{get_secs, ComprehensiveNode};
+	use crate::mesh_connection::ipc::IPCMessage;
+	use crate::mesh_connection::mt_node::*;
+	use crate::mesh_connection::packet_handler::{process_packet, MessageEnvelope, PacketResponse};
+	use crate::mesh_connection::util::{get_secs, ComprehensiveNode};
 
 	use tokio::sync::mpsc;
 	use tokio::task::JoinHandle;

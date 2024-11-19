@@ -1,7 +1,7 @@
-use crate::ipc::IPCMessage;
-use crate::util::ComprehensiveNode;
-use crate::util::get_secs;
-use crate::util;
+use crate::mesh_connection::ipc::IPCMessage;
+use crate::mesh_connection::util::ComprehensiveNode;
+use crate::mesh_connection::util::get_secs;
+use crate::mesh_connection::util;
 use meshtastic::packet::PacketDestination;
 // use meshtastic::protobufs::config::PayloadVariant;
 use meshtastic::protobufs::log_record::Level;

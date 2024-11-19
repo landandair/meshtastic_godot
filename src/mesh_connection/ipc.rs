@@ -1,4 +1,4 @@
-use crate::packet_handler::MessageEnvelope;
+use crate::mesh_connection::packet_handler::MessageEnvelope;
 use meshtastic::protobufs::{FromRadio, ToRadio};
 
 #[derive(Debug)]
