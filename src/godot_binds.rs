@@ -1,21 +1,32 @@
 use godot::prelude::*;
 use godot::classes::{RefCounted, IRefCounted};
 
-use meshtastic::api::ConnectedStreamApi;
-use meshtastic::utils;
-use meshtastic::api::StreamApi;
-use meshtastic::packet::PacketReceiver;
+use crate::mesh_connection::ipc::InterfaceIPC;
+use crate::mesh_connection::util::{get_secs, ComprehensiveNode};
+use crate::mesh_connection::packet_handler::{process_packet, MessageEnvelope, PacketResponse};
+use crate::api::{create_thread_ipc, start_meshtastic_loop};
+use crate::mesh_connection::connection::Connection;
+
 use meshtastic::types::MeshChannel;
 use meshtastic::packet::PacketDestination;
 
+use std::collections::HashMap;
 use serialport::SerialPortType;
 use tokio::runtime::{Builder, Runtime};
+use tokio::task::JoinHandle;
+use anyhow::Result;
+use godot::sys::join;
+
 
 #[derive(GodotClass)]
 #[class(base=RefCounted)]
 struct MeshtasticNode{
-    stream_api: Option<ConnectedStreamApi>,
-    listener: Option<PacketReceiver>,
+    mt_loop_join_handle: Option<JoinHandle<Result<()>>>,
+    mpsc_channels: Box<Option<InterfaceIPC>>,
+    connection: Connection,
+    node_list: HashMap<u32, ComprehensiveNode>,
+    message_queue: Vec<MessageEnvelope>,
+    our_node: Option<u32>,
     runtime: Runtime,
 
     #[base]
@@ -31,8 +42,12 @@ impl IRefCounted for MeshtasticNode{
             .enable_time() 	// optional, depending on your needs
             .build()
             .unwrap(),
-            stream_api: None,
-            listener: None,
+            mt_loop_join_handle: None,
+            mpsc_channels: Box::new(None),
+            connection: Connection::None,
+            node_list: HashMap::new(),
+            message_queue: Vec::new(),
+            our_node: None,
             base }
     }
 }
@@ -68,33 +83,112 @@ impl MeshtasticNode{
         }
     }
 
-    // /// Open a MeshtasticNode port with the specified name and baud rate
-    // #[func]
-    // fn open(&mut self, name: GString, baud_rate: u32) -> bool {
-    //     let stream_api = StreamApi::new();
-    //
-    //     match utils::stream::build_serial_stream(name.to_string(), None, None, None) {
-    //         Ok(serial_stream) => {
-    //             let (mut decoded_listener, stream_api) =
-    //                 self.runtime.block_on(stream_api.connect(serial_stream));
-    //             let config_id = utils::generate_rand_id();
-    //             let stream_api = self.runtime.block_on(stream_api.configure(config_id)).unwrap();
-    //             self.listener = Some(decoded_listener);
-    //             self.stream_api = Some(stream_api);
-    //             true
-    //         },
-    //         Err(e) => {
-    //             godot_error!("Failed to open serial port: {}", e);
-    //             false
-    //         }
-    //     }
-    // }
+    /// Open a MeshtasticNode serial port with the specified name and baud rate
+    #[func]
+    fn open_serial_node(&mut self, name: GString) {
+        self.connection = Connection::Serial(name.to_string());
+        let (iface, radio) = create_thread_ipc();
+        self.mpsc_channels = Box::new(Some(iface));
+        self.mt_loop_join_handle = Some(start_meshtastic_loop(self.connection.clone(), radio));
+    }
 
-    /// Is MeshtasticNodeopen or not
+    /// Open a MeshtasticNode TCP port
+    #[func]
+    fn open_tcp_node(&mut self, ip: GString, port: u16) {
+        let ip = ip.to_string();
+        self.connection = Connection::TCP(ip, port);
+        let (iface, radio) = create_thread_ipc();
+        self.mpsc_channels = Box::new(Some(iface));
+        self.mt_loop_join_handle = Some(start_meshtastic_loop(self.connection.clone(), radio));
+    }
+
+    /// Poll the interface and update the status and service mpsc
+    #[func]
+    fn poll(&mut self) {
+        match self.mpsc_channels.as_mut(){
+            Some(iface) => {
+                while iface.from_radio_rx.is_empty() {
+                    match iface.from_radio_rx.try_recv() {
+                        Ok(msg) => {
+                            let update = process_packet(msg, self.node_list.clone());
+                            if update.is_some() {
+                                match update.unwrap() {
+                                    PacketResponse::NodeUpdate(id, cn) => {
+                                        println!("update for: {}\n", id);
+                                        self.node_list.insert(id, *cn);
+                                    }
+                                    PacketResponse::UserUpdate(id, user) => {
+                                        println!("Update for user {}\n", id);
+                                        if let Some(cn) = self.node_list.get(&id) {
+                                            let mut ncn = cn.clone();
+                                            ncn.node_info.user = Some(user);
+                                            ncn.last_seen = get_secs();
+                                            self.node_list.insert(id, ncn);
+                                        } else {
+                                            let mut cn = ComprehensiveNode::with_id(id);
+                                            cn.node_info.user = Some(user);
+                                            cn.last_seen = get_secs();
+                                            self.node_list.insert(id, cn);
+                                        }
+                                    }
+                                    PacketResponse::InboundMessage(msg) => {
+                                        // Put message on queue
+                                        self.message_queue.push(msg);
+                                    }
+                                    PacketResponse::OurAddress(id) => {
+                                        self.our_node = Some(id);
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            godot_error!("{}", e);
+                        }
+                    }
+                }
+            },
+            None => {
+                ()
+            }
+        }
+    }
+
+    #[func]
+    fn available_message(&self) -> i16 {
+        self.message_queue.len() as i16
+    }
+
+    /// Get first message on queue
+    #[func]
+    fn get_message(&mut self) -> Dictionary {
+        let mut dict = Dictionary::new();
+        if !self.message_queue.is_empty(){
+            let msg = self.message_queue.remove(0);
+            let src = msg.source.unwrap().user.unwrap().id;
+            let dest = match msg.destination{
+                PacketDestination::Local => {"Local".to_string()}
+                PacketDestination::Broadcast => {"broadcast".to_string()}
+                PacketDestination::Node(id) => {id.to_string()}
+            };
+
+            let _ = dict.insert("source", src);
+            let _ = dict.insert("payload", msg.payload.data_vec());
+            let _ = dict.insert("channel", msg.channel.channel());
+            let _ = dict.insert("destination", dest);
+            let _ = dict.insert("portnum", msg.port_num.as_str_name());
+            let _ = dict.insert("portnum", msg.rx_rssi);
+            let _ = dict.insert("portnum", msg.rx_snr);
+        }
+        dict
+    }
+
+    /// return open files
     #[func]
     fn is_open(&self) -> bool {
-        match self.stream_api {
-            Some(_) => true,
+        match &self.mt_loop_join_handle {
+            Some(join) => {
+                !join.is_finished()
+            },
             None => false,
         }
     }
@@ -102,151 +196,16 @@ impl MeshtasticNode{
     /// Close the MeshtasticNode port
     #[func]
     fn close(&mut self) {
-        self.listener = None;
-        self.stream_api = None;
-    }
-
-    // /// Write data to the MeshtasticNodeport.
-    // let channel = MeshChannel::new(0).unwrap();
-    //
-    // let _ = self.runtime.block_on(stream_api.send_text(&mut router, "Hello world!".to_string(), PacketDestination::Broadcast, true, channel)).expect("TODO: panic message");
-    // /// Return n as bytes written, or -1 when failed
-    // #[func]
-    // fn write(&mut self, data: PackedByteArray) -> i32 {
-    //     if let Some(port) = &mut self.port {
-    //         match port.write(&data.to_vec()) {
-    //             Ok(n) => n as i32,
-    //             Err(e) => {
-    //                 godot_error!("Failed to write to MeshtasticNodeport: {}", e);
-    //                 -1
-    //             }
-    //         }
-    //     } else {
-    //         godot_error!("MeshtasticNodeport not open");
-    //         -1
-    //     }
-    // }
-    //
-    // /// Write string to the MeshtasticNodeport
-    // ///
-    // /// Return n as bytes written, or -1 when failed
-    // #[func]
-    // fn write_str(&mut self, string: GString) -> i32 {
-    //     if let Some(port) = &mut self.port {
-    //         match port.write(&string.to_string().as_bytes()) {
-    //             Ok(n) => n as i32,
-    //             Err(e) => {
-    //                 godot_error!("Failed to write to MeshtasticNodeport: {}", e);
-    //                 -1
-    //             }
-    //         }
-    //     } else {
-    //         godot_error!("MeshtasticNodeport not open");
-    //         -1
-    //     }
-    // }
-    //
-    // /// Read data from the MeshtasticNodeport.
-    // #[func]
-    // fn read(&mut self) -> PackedByteArray {
-    //     if let Some(port) = &mut self.port {
-    //         let mut buf = vec![0u8; port.bytes_to_read().unwrap_or(0) as usize];
-    //         match port.read(&mut buf) {
-    //             Ok(_) => buf.as_slice().into(),
-    //             Err(e) => {
-    //                 godot_error!("Failed to write to MeshtasticNodeport: {}", e);
-    //                 PackedByteArray::new()
-    //             }
-    //         }
-    //     } else {
-    //         godot_error!("MeshtasticNodeport not open");
-    //         PackedByteArray::new()
-    //     }
-    // }
-    //
-    // /// Read exact number of bytes from the MeshtasticNodeport.
-    // #[func]
-    // fn read_exact(&mut self, size: i32) -> PackedByteArray {
-    //     if let Some(port) = &mut self.port {
-    //         let mut buf = vec![0u8; size as usize];
-    //         match port.read_exact(&mut buf) {
-    //             Ok(_) => buf.as_slice().into(),
-    //             Err(e) => {
-    //                 godot_error!("Failed to read from MeshtasticNodeport: {}", e);
-    //                 PackedByteArray::new()
-    //             }
-    //         }
-    //     } else {
-    //         godot_error!("MeshtasticNodeport not open");
-    //         PackedByteArray::new()
-    //     }
-    // }
-    //
-    // /// Read string form the seral port[broken]
-    // // #[func]
-    // // fn read_str(&mut self, utf8_encoding: bool) -> GString {
-    // //     if let Some(port) = &mut self.port {
-    // //         let mut buf = vec![0u8; port.bytes_to_read().unwrap() as usize];
-    // //         match port.read_exact(&mut buf) {
-    // //             Ok(_) => {
-    // //                 if utf8_encoding {
-    // //                     String::from_utf8_lossy(&buf).into()
-    // //                 } else {
-    // //                     unsafe {
-    // //                         String::from_raw_parts(buf.as_mut_ptr(), buf.len(), buf.len()).into()
-    // //                     }
-    // //                 }
-    // //             }
-    // //             Err(e) => {
-    // //                 godot_error!("Failed to read from MeshtasticNodeport: {}", e);
-    // //                 GString::new()
-    // //             }
-    // //         }
-    // //     } else {
-    // //         godot_error!("MeshtasticNodeport not open");
-    // //         GString::new()
-    // //     }
-    // // }
-    //
-    // /// Gets the number of bytes available to be read from the input buffer.
-    // #[func]
-    // fn available(&self) -> i32 {
-    //     if let Some(port) = &self.port {
-    //         match port.bytes_to_read() {
-    //             Ok(bytes) => bytes as i32,
-    //             Err(e) => {
-    //                 godot_error!("Failed to get bytes read: {}", e);
-    //                 0
-    //             }
-    //         }
-    //     } else {
-    //         godot_error!("MeshtasticNodeport not open");
-    //         0
-    //     }
-    // }
-    //
-    // #[func]
-    // fn remains(&self) -> i32 {
-    //     if let Some(port) = &self.port {
-    //         match port.bytes_to_write() {
-    //             Ok(bytes) => bytes as i32,
-    //             Err(e) => {
-    //                 godot_error!("Failed to get bytes remains to write: {}", e);
-    //                 0
-    //             }
-    //         }
-    //     } else {
-    //         godot_error!("MeshtasticNodeport not open");
-    //         0
-    //     }
-    // }
-}
-
-#[cfg(test)]
-mod test {
-    #[test]
-    fn test() {
-        assert!(true)
+        match &self.mt_loop_join_handle {
+            Some(join) => {
+                join.abort();
+                self.our_node = None;
+                self.message_queue = Vec::new();
+                self.mpsc_channels = Box::new(None);
+                self.connection = Connection::None
+            },
+            None => (),
+        }
     }
 }
 

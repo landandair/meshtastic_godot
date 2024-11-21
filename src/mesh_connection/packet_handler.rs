@@ -1,15 +1,12 @@
 use crate::mesh_connection::ipc::IPCMessage;
 use crate::mesh_connection::util::ComprehensiveNode;
-use crate::mesh_connection::util::get_secs;
 use crate::mesh_connection::util;
 use meshtastic::packet::PacketDestination;
 // use meshtastic::protobufs::config::PayloadVariant;
 use meshtastic::protobufs::log_record::Level;
 // use meshtastic::protobufs::module_config::PayloadVariant as mpv;
-use meshtastic::protobufs::{
-    from_radio, mesh_packet, routing, telemetry, NeighborInfo, NodeInfo, PortNum, Position, Routing, User,
-};
-use meshtastic::types::MeshChannel;
+use meshtastic::protobufs::{from_radio, mesh_packet, routing, NeighborInfo, NodeInfo, PortNum, Position, Routing, User};
+use meshtastic::types::{MeshChannel, EncodedMeshPacketData};
 use meshtastic::Message;
 use std::collections::HashMap;
 
@@ -26,12 +23,14 @@ pub struct MessageEnvelope {
     pub(crate) source: Option<NodeInfo>,
     pub(crate) destination: PacketDestination,
     pub(crate) channel: MeshChannel,
-    pub(crate) message: String,
+    pub(crate) payload: EncodedMeshPacketData,
     pub(crate) rx_rssi: i32,
     pub(crate) rx_snr: f32,
+    pub(crate) port_num: PortNum,
+    pub(crate) want_ack: bool
 }
 
-pub async fn process_packet(
+pub fn process_packet(
     packet: IPCMessage,
     node_list: HashMap<u32, ComprehensiveNode>,
 ) -> Option<PacketResponse> {
@@ -66,74 +65,6 @@ pub async fn process_packet(
                                             cn.node_info.num,
                                             Box::new(cn),
                                         ));
-                                    }
-                                    PortNum::TelemetryApp => {
-                                        let data = meshtastic::protobufs::Telemetry::decode(
-                                            de.payload.as_slice(),
-                                        )
-                                            .unwrap();
-                                        if let Some(v) = data.variant {
-                                            match v {
-                                                telemetry::Variant::EnvironmentMetrics(_env) => {
-                                                    let mut cn = match node_list
-                                                        .contains_key(&pa.from)
-                                                    {
-                                                        true => node_list
-                                                            .get(&pa.from)
-                                                            .unwrap()
-                                                            .to_owned(),
-                                                        false => {
-                                                            ComprehensiveNode::with_id(pa.from)
-                                                        }
-                                                    };
-                                                    println!("Received EnvironmentalMetrics from !{:x} ({})", pa.from, pa.from);
-                                                    cn.last_seen = get_secs();
-                                                    cn.last_rssi = pa.rx_rssi;
-                                                    cn.last_snr = pa.rx_snr;
-                                                    return Some(PacketResponse::NodeUpdate(
-                                                        cn.node_info.num,
-                                                        Box::new(cn),
-                                                    ));
-
-                                                }
-                                                telemetry::Variant::DeviceMetrics(dm) => {
-                                                    let mut cn = match node_list
-                                                        .contains_key(&pa.from)
-                                                    {
-                                                        true => node_list
-                                                            .get(&pa.from)
-                                                            .unwrap()
-                                                            .to_owned(),
-                                                        false => {
-                                                            ComprehensiveNode::with_id(pa.from)
-                                                        }
-                                                    };
-                                                    println!(
-                                                        "Updating DeviceMetrics for {} ({})",
-                                                        cn.clone()
-                                                            .node_info
-                                                            .user
-                                                            .unwrap_or_else(User::default)
-                                                            .id,
-                                                        pa.from
-                                                    );
-                                                    cn.node_info.device_metrics = Some(dm.clone());
-                                                    cn.last_seen = get_secs();
-                                                    cn.last_rssi = pa.rx_rssi;
-                                                    cn.last_snr = pa.rx_snr;
-                                                    return Some(PacketResponse::NodeUpdate(
-                                                        cn.node_info.num,
-                                                        Box::new(cn),
-                                                    ));
-                                                }
-                                                _ => {
-                                                    return None;
-                                                } // Variant::EnvironmentMetrics(_) => {}
-                                                // Variant::AirQualityMetrics(_) => {}
-                                                // Variant::PowerMetrics(_) => {}
-                                            }
-                                        }
-                                        return None;
                                     }
                                     PortNum::NeighborinfoApp => {
                                         let data =
@@ -237,51 +168,38 @@ pub async fn process_packet(
                                         // }
                                         return None
                                     }
-                                    PortNum::ReplyApp => {
-                                        println!("We were just pinged.");
-                                    }
+                                    other_port => {
+                                        let source_ni = match node_list.get(&pa.from) {
+                                            Some(s) => s.clone().node_info,
+                                            None => {
+                                                println!(
+                                                    "Could not find node info for id {}",
+                                                    pa.from
+                                                );
+                                                return None;
+                                            }
+                                        };
+                                        let _dest_ni =
+                                            node_list.get(&pa.to).map(|s| s.clone().node_info);
+                                        let destinated: PacketDestination = match pa.to {
+                                            0 => PacketDestination::Local,
+                                            u32::MAX => PacketDestination::Broadcast,
+                                            s => PacketDestination::Node(s.into()),
+                                        };
 
-                                    PortNum::TextMessageApp => {
-                                        if let Ok(message) = String::from_utf8(de.payload) {
-                                            let source_ni = match node_list.get(&pa.from) {
-                                                Some(s) => s.clone().node_info,
-                                                None => {
-                                                    println!(
-                                                        "Could not find node info for id {}",
-                                                        pa.from
-                                                    );
-                                                    return None;
-                                                }
-                                            };
-                                            let _dest_ni =
-                                                node_list.get(&pa.to).map(|s| s.clone().node_info);
-                                            let destinated: PacketDestination = match pa.to {
-                                                0 => PacketDestination::Local,
-                                                u32::MAX => PacketDestination::Broadcast,
-                                                s => PacketDestination::Node(s.into()),
-                                            };
-
-                                            return Some(PacketResponse::InboundMessage(
-                                                MessageEnvelope {
-                                                    timestamp: pa.rx_time,
-                                                    source: Some(source_ni),
-                                                    destination: destinated,
-                                                    channel: MeshChannel::from(pa.channel),
-                                                    message,
-                                                    rx_rssi: pa.rx_rssi,
-                                                    rx_snr: pa.rx_snr,
-                                                },
-                                            ));
-                                        } else {
-                                            println!(
-                                                "Unable to decode text message to utf8 from ({})",
-                                                de.source
-                                            );
-                                        }
-                                    }
-                                    _ => {
-                                        println!("{:#?}", de);
-                                        return None;
+                                        return Some(PacketResponse::InboundMessage(
+                                            MessageEnvelope {
+                                                timestamp: pa.rx_time,
+                                                source: Some(source_ni),
+                                                destination: destinated,
+                                                channel: MeshChannel::from(pa.channel),
+                                                payload: EncodedMeshPacketData::new(de.payload),
+                                                rx_rssi: pa.rx_rssi,
+                                                rx_snr: pa.rx_snr,
+                                                port_num: other_port,
+                                                want_ack: pa.want_ack
+                                            },
+                                        ));
                                     } // PortNum::AdminApp => {}
                                     // PortNum::WaypointApp => {}
 
