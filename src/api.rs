@@ -15,9 +15,9 @@ use meshtastic::protobufs::PortNum;
 
 pub fn create_thread_ipc() -> (InterfaceIPC, RadioIPC) {
     let (mut fromradio_thread_tx, mut fromradio_thread_rx) =
-        channel::<IPCMessage>(100);
+        channel::<IPCMessage>(1000);
     let (mut toradio_thread_tx, mut toradio_thread_rx) =
-        channel::<IPCMessage>(100);
+        channel::<IPCMessage>(1000);
     let iface = InterfaceIPC {
         from_radio_rx: fromradio_thread_rx,
         to_radio_tx: toradio_thread_tx,

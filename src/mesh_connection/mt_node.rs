@@ -94,6 +94,7 @@ pub(crate) async fn meshtastic_loop(
 		if let Ok(fr) = decoded_listener.try_recv() {
 			if let Err(e) = tx.send(IPCMessage::FromRadio(fr)).await {
 				println!("Couldn't send FromRadio packet to mpsc: {e}");
+				//panic!("ahh")
 			}
 		}
 		if let Ok(inbound) = rx.try_recv() {

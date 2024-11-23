@@ -16,8 +16,9 @@ use serialport::SerialPortType;
 use tokio::runtime::{Builder, Runtime};
 use tokio::task::JoinHandle;
 use anyhow::Result;
+use godot::meta::AsArg;
 use godot::sys::join;
-use meshtastic::protobufs::PortNum;
+use meshtastic::protobufs::{PortNum, User};
 
 #[derive(GodotClass)]
 #[class(base=RefCounted)]
@@ -84,21 +85,23 @@ impl MeshtasticNode{
         }
     }
 
-    /// Open a MeshtasticNode serial port with the specified name and baud rate
-    #[func]
-    fn open_serial_node(&mut self, name: GString) {
-        self.connection = Connection::Serial(name.to_string());
+    fn start_node_loop(&mut self)  {
+        if self.is_open() {
+            self.close()
+        }
         let cloned_connection = self.connection.clone();
         let (iface, radio) = create_thread_ipc();
         self.mpsc_channels = Box::new(Some(iface));
         self.mt_loop_join_handle = Some(self.runtime.spawn( {
             start_meshtastic_loop(cloned_connection, radio)
         }));
-        let handle = self.mt_loop_join_handle.as_ref().unwrap();
-        if !handle.is_finished() {
-            godot_print!("not panicked yet");
-        }
-        godot_error!("exiting");
+    }
+
+    /// Open a MeshtasticNode serial port with the specified name and baud rate
+    #[func]
+    fn open_serial_node(&mut self, name: GString) {
+        self.connection = Connection::Serial(name.to_string());
+        self.start_node_loop()
     }
 
     /// Open a MeshtasticNode TCP port
@@ -106,16 +109,12 @@ impl MeshtasticNode{
     fn open_tcp_node(&mut self, ip: GString, port: u16) {
         let ip = ip.to_string();
         self.connection = Connection::TCP(ip, port);
-        let (iface, radio) = create_thread_ipc();
-        self.mpsc_channels = Box::new(Some(iface));
-        self.mt_loop_join_handle = Some(self.runtime.spawn( {
-            start_meshtastic_loop(self.connection.clone(), radio)
-        }));
+        self.start_node_loop()
     }
 
     /// Poll the interface and update the status and service mpsc
     #[func]
-    fn poll(&mut self) {
+    fn poll(&mut self) -> bool{
         match self.mpsc_channels.as_mut(){
             Some(iface) => {
                 while !iface.from_radio_rx.is_empty() {
@@ -155,14 +154,21 @@ impl MeshtasticNode{
                         }
                         Err(e) => {
                             godot_error!("{}", e);
+                            return false
                         }
                     }
                 }
             },
             None => {
-                ()
+                return false
             }
         }
+        if !self.is_open(){  // Something went wrong, restart loop
+            self.start_node_loop();
+            godot_error!("Something went wrong with the meshtastic Connection: Restarting");
+            return false
+        }
+        true
     }
 
     /// Get first message on queue
@@ -200,10 +206,8 @@ impl MeshtasticNode{
     /// Get length of message queue and return integer length
     #[func]
     fn send_text_message(&mut self, text: GString, channel_num: i64, packet_destination_id: i64, want_ack: bool) {
-        godot_print!("text: {text}, channel_num: {channel_num} packet_destination_id: {packet_destination_id}");
         let destination:Option<PacketDestination> = match packet_destination_id  {
             0 => {
-                godot_print!("here: {}", self.is_open());
                 None
             },
             _ => {
@@ -252,17 +256,51 @@ impl MeshtasticNode{
         };
     }
 
+    /// List all nodes the radio knows about
+    #[func]
+    fn get_node_list(&mut self) -> Array<GString>{
+        let mut node_array:Array<GString> = Array::new();
+        let vec = self.node_list.keys().cloned().collect::<Vec<u32>>();
+        for key in vec{
+            let str = GString::from(format!("!{key:x}"));
+            godot_print!("key: {}", str);
+            node_array.push(str.into_arg());
+        }
+        node_array
+    }
+
+    /// List all nodes the radio knows about
+    #[func]
+    fn get_node_info(&mut self, id_hex: GString) -> Dictionary {
+        let id_str = id_hex.to_string().replace("!", "");
+        let mut dict = Dictionary::new();
+        let id:u32 = u32::from_str_radix(&id_str, 16).unwrap();
+        match self.node_list.get(&id) {
+            None => {godot_error!("No node id: id")}
+            Some(node) => {
+                let info = node.node_info.clone();
+                let user = info.user.unwrap_or(User::default());
+                let _ = dict.insert("short_name", user.short_name);
+                let _ = dict.insert("long_name", user.long_name);
+                let _ = dict.insert("hw_model", user.hw_model);
+                let _ = dict.insert("role_int", user.role);
+                let _ = dict.insert("last_heard", node.last_seen);
+                let _ = dict.insert("device_num", info.num);
+                let _ = dict.insert("is_favorite", info.is_favorite);
+                let _ = dict.insert("snr", info.snr);
+                let _ = dict.insert("hops", info.hops_away);
+                let _ = dict.insert("is_mqtt", info.via_mqtt);
+                let _ = dict.insert("last_heard", node.last_seen);
+            }
+        };
+        dict
+    }
+
     /// return if meshtastic loop is running(node is connected)
     #[func]
     fn is_open(&self) -> bool {
         match &self.mt_loop_join_handle {
             Some(join) => {
-                // if join.is_finished(){
-                //     self.runtime.spawn(async{
-                //         let err = join.;
-                //         godot_error!("is panic: {}", err.is_panic())
-                //     });
-                // }
                 !join.is_finished()
             },
             None => false
@@ -278,7 +316,6 @@ impl MeshtasticNode{
                 self.our_node = None;
                 self.message_queue = Vec::new();
                 self.mpsc_channels = Box::new(None);
-                self.connection = Connection::None
             },
             None => (),
         }

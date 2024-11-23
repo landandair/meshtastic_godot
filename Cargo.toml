@@ -1,5 +1,5 @@
 [package]
-name = "MeshtasticGodot"
+name = "meshtastic_godot"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,8 +10,9 @@ serialport = "*"
 tokio = { version = "1.10", features = ["rt"] }
 anyhow = "1.0.93"
 strum = "0.26.3"
-thiserror = "1.0.68"
+thiserror = "2.0.3"
 strum_macros = "0.26.4"
+hex = "0.4.3"
 
 
 [lib]
