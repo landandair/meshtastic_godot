@@ -9,11 +9,9 @@ use meshtastic::packet::PacketDestination;
 use meshtastic::types::{EncodedMeshPacketData, MeshChannel};
 
 use tokio::sync::mpsc::{channel, Sender};
-use tokio::task::JoinHandle;
 use anyhow::{Result};
 use meshtastic::Message;
 use meshtastic::protobufs::PortNum;
-
 
 pub fn create_thread_ipc() -> (InterfaceIPC, RadioIPC) {
     let (mut fromradio_thread_tx, mut fromradio_thread_rx) =
@@ -31,13 +29,11 @@ pub fn create_thread_ipc() -> (InterfaceIPC, RadioIPC) {
     (iface, radio)
 }
 
-pub fn start_meshtastic_loop(conn: Connection, radio_ipc: RadioIPC) -> JoinHandle<Result<()>> {
-    let mut join_handle: JoinHandle<Result<()>> = tokio::task::spawn(async move {
-        meshtastic_loop(conn, radio_ipc.from_radio_tx, radio_ipc.to_radio_rx).await
-    });
-    join_handle
+pub async fn start_meshtastic_loop(conn: Connection, radio_ipc: RadioIPC) -> Result<()> {
+    meshtastic_loop(conn, radio_ipc.from_radio_tx, radio_ipc.to_radio_rx).await
 }
 
+///Function intended to be used to send text messages with the TextMessageApp
 pub async fn send_text_message(toradio_thread_tx: Sender<IPCMessage>, message:String, packet_destination: Option<PacketDestination>, channel: MeshChannel, want_ack: bool){
     let packet_destination = packet_destination.unwrap_or(PacketDestination::Broadcast);
     let t = get_secs();
@@ -51,16 +47,17 @@ pub async fn send_text_message(toradio_thread_tx: Sender<IPCMessage>, message:St
         rx_rssi: 0,
         rx_snr: 0.0,
         port_num: PortNum::TextMessageApp,
+        sub_port: 0,
         want_ack
     });
     toradio_thread_tx.send(message).await.expect("TODO: panic message");
     ()
 }
 
-
+/// Function intended to be used to send raw binary data messages from the radio.
 pub async fn send_raw_message(toradio_thread_tx: Sender<IPCMessage>, message:Vec<u8>,
-                              packet_destination: Option<PacketDestination>, channel: u32,
-                              port_num: PortNum, want_ack: bool){
+                              packet_destination: Option<PacketDestination>, channel: MeshChannel,
+                              port_num: PortNum, sub_port: u16, want_ack: bool){
     let packet_destination = packet_destination.unwrap_or(PacketDestination::Broadcast);
     let t = get_secs();
     let payload = EncodedMeshPacketData::new(message.encode_to_vec());
@@ -68,11 +65,12 @@ pub async fn send_raw_message(toradio_thread_tx: Sender<IPCMessage>, message:Vec
         timestamp: t as u32,
         source: None,
         destination: packet_destination,
-        channel: MeshChannel::new(channel).unwrap(),
+        channel,
         payload,
         rx_rssi: 0,
         rx_snr: 0.0,
         port_num,
+        sub_port,  // Unused, sub-port should be pre-pended to payload vector prior to sending
         want_ack
     });
     toradio_thread_tx.send(message).await.expect("TODO: panic message");
@@ -100,7 +98,7 @@ mod test {
 
         let conn = Connection::Serial("/dev/tty.usbserial-54760041581".to_string());
 
-        let join_handle = start_meshtastic_loop(conn, radio_ipc);
+        let join_handle = tokio::task::spawn(start_meshtastic_loop(conn, radio_ipc));
 
         send_text_message(interface_ipc.to_radio_tx.clone(), "string_val: hi".to_string(), None, 0.into(), true).await;
         let mut node_list: HashMap<u32, ComprehensiveNode> = HashMap::new();

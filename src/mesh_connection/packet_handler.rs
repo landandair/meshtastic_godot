@@ -27,6 +27,7 @@ pub struct MessageEnvelope {
     pub(crate) rx_rssi: i32,
     pub(crate) rx_snr: f32,
     pub(crate) port_num: PortNum,
+    pub(crate) sub_port: u16,
     pub(crate) want_ack: bool
 }
 
@@ -168,6 +169,53 @@ pub fn process_packet(
                                         // }
                                         return None
                                     }
+                                    PortNum::PrivateApp => {  // Temporary impl of intended behavior of subports
+                                        let source_ni = match node_list.get(&pa.from) {
+                                        Some(s) => s.clone().node_info,
+                                        None => {
+                                        println!(
+                                        "Could not find node info for id {}",
+                                        pa.from
+                                        );
+                                        return None;
+                                        }
+                                        };
+                                            let _dest_ni =
+                                            node_list.get(&pa.to).map(|s| s.clone().node_info);
+                                            let destinated: PacketDestination = match pa.to {
+                                            0 => PacketDestination::Local,
+                                            u32::MAX => PacketDestination::Broadcast,
+                                            s => PacketDestination::Node(s.into()),
+                                        };
+                                        // Split sub_port off from value in the private_app case
+                                        let (sub_port, payload) = match de.payload.split_at_checked(2) {
+                                            None => {
+                                                let sub_port: u16 = 0;  // Return to default val
+                                                let payload = de.payload;
+                                                (sub_port, payload)
+
+                                            }
+                                            Some((short_port, payload)) => {
+                                                let sub_port = ((short_port[0] as u16) << 8) | short_port[1] as u16;
+                                                (sub_port, payload.to_vec())
+                                            }
+                                        };
+
+                                        return Some(PacketResponse::InboundMessage(
+                                                        MessageEnvelope {
+                                                            timestamp: pa.rx_time,
+                                                            source: Some(source_ni),
+                                                            destination: destinated,
+                                                            channel: MeshChannel::from(pa.channel),
+                                                            payload: EncodedMeshPacketData::new(payload),
+                                                            rx_rssi: pa.rx_rssi,
+                                                            rx_snr: pa.rx_snr,
+                                                            port_num: PortNum::PrivateApp,
+                                                            sub_port,
+                                                            want_ack: pa.want_ack
+                                                        },
+                                                    ));
+                                    }
                                     other_port => {
                                         let source_ni = match node_list.get(&pa.from) {
                                             Some(s) => s.clone().node_info,
@@ -197,6 +245,7 @@ pub fn process_packet(
                                                 rx_rssi: pa.rx_rssi,
                                                 rx_snr: pa.rx_snr,
                                                 port_num: other_port,
+                                                sub_port: 0,
                                                 want_ack: pa.want_ack
                                             },
                                         ));

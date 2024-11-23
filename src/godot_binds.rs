@@ -4,19 +4,20 @@ use godot::classes::{RefCounted, IRefCounted};
 use crate::mesh_connection::ipc::InterfaceIPC;
 use crate::mesh_connection::util::{get_secs, ComprehensiveNode};
 use crate::mesh_connection::packet_handler::{process_packet, MessageEnvelope, PacketResponse};
-use crate::api::{create_thread_ipc, start_meshtastic_loop};
+use crate::api::{create_thread_ipc, send_raw_message, send_text_message, start_meshtastic_loop};
 use crate::mesh_connection::connection::Connection;
 
-use meshtastic::types::MeshChannel;
+use meshtastic::types::{MeshChannel, NodeId};
 use meshtastic::packet::PacketDestination;
 
 use std::collections::HashMap;
+use std::future::{Future, IntoFuture};
 use serialport::SerialPortType;
 use tokio::runtime::{Builder, Runtime};
 use tokio::task::JoinHandle;
 use anyhow::Result;
 use godot::sys::join;
-
+use meshtastic::protobufs::PortNum;
 
 #[derive(GodotClass)]
 #[class(base=RefCounted)]
@@ -37,7 +38,7 @@ struct MeshtasticNode{
 #[godot_api]
 impl IRefCounted for MeshtasticNode{
     fn init(base: Base<RefCounted>) -> Self {
-        Self { runtime: Builder::new_current_thread()
+        Self { runtime: Builder::new_multi_thread()
             .enable_io() 	// optional, depending on your needs
             .enable_time() 	// optional, depending on your needs
             .build()
@@ -87,9 +88,17 @@ impl MeshtasticNode{
     #[func]
     fn open_serial_node(&mut self, name: GString) {
         self.connection = Connection::Serial(name.to_string());
+        let cloned_connection = self.connection.clone();
         let (iface, radio) = create_thread_ipc();
         self.mpsc_channels = Box::new(Some(iface));
-        self.mt_loop_join_handle = Some(start_meshtastic_loop(self.connection.clone(), radio));
+        self.mt_loop_join_handle = Some(self.runtime.spawn( {
+            start_meshtastic_loop(cloned_connection, radio)
+        }));
+        let handle = self.mt_loop_join_handle.as_ref().unwrap();
+        if !handle.is_finished() {
+            godot_print!("not panicked yet");
+        }
+        godot_error!("exiting");
     }
 
     /// Open a MeshtasticNode TCP port
@@ -99,7 +108,9 @@ impl MeshtasticNode{
         self.connection = Connection::TCP(ip, port);
         let (iface, radio) = create_thread_ipc();
         self.mpsc_channels = Box::new(Some(iface));
-        self.mt_loop_join_handle = Some(start_meshtastic_loop(self.connection.clone(), radio));
+        self.mt_loop_join_handle = Some(self.runtime.spawn( {
+            start_meshtastic_loop(self.connection.clone(), radio)
+        }));
     }
 
     /// Poll the interface and update the status and service mpsc
@@ -107,7 +118,7 @@ impl MeshtasticNode{
     fn poll(&mut self) {
         match self.mpsc_channels.as_mut(){
             Some(iface) => {
-                while iface.from_radio_rx.is_empty() {
+                while !iface.from_radio_rx.is_empty() {
                     match iface.from_radio_rx.try_recv() {
                         Ok(msg) => {
                             let update = process_packet(msg, self.node_list.clone());
@@ -134,6 +145,7 @@ impl MeshtasticNode{
                                     PacketResponse::InboundMessage(msg) => {
                                         // Put message on queue
                                         self.message_queue.push(msg);
+                                        godot_print!("Msg")
                                     }
                                     PacketResponse::OurAddress(id) => {
                                         self.our_node = Some(id);
@@ -153,11 +165,6 @@ impl MeshtasticNode{
         }
     }
 
-    #[func]
-    fn available_message(&self) -> i16 {
-        self.message_queue.len() as i16
-    }
-
     /// Get first message on queue
     #[func]
     fn get_message(&mut self) -> Dictionary {
@@ -175,21 +182,90 @@ impl MeshtasticNode{
             let _ = dict.insert("payload", msg.payload.data_vec());
             let _ = dict.insert("channel", msg.channel.channel());
             let _ = dict.insert("destination", dest);
-            let _ = dict.insert("portnum", msg.port_num.as_str_name());
-            let _ = dict.insert("portnum", msg.rx_rssi);
-            let _ = dict.insert("portnum", msg.rx_snr);
+            let _ = dict.insert("port_num", msg.port_num.as_str_name());
+            let _ = dict.insert("sub_port", msg.sub_port);
+            let _ = dict.insert("rx_rssi", msg.rx_rssi);
+            let _ = dict.insert("rx_snr", msg.rx_snr);
+            let _ = dict.insert("time", msg.timestamp);
         }
         dict
     }
 
-    /// return open files
+    /// Gets length of message queue as int
+    #[func]
+    fn get_available_messages(&mut self) -> i64 {
+        self.message_queue.len() as i64
+    }
+
+    /// Get length of message queue and return integer length
+    #[func]
+    fn send_text_message(&mut self, text: GString, channel_num: i64, packet_destination_id: i64, want_ack: bool) {
+        godot_print!("text: {text}, channel_num: {channel_num} packet_destination_id: {packet_destination_id}");
+        let destination:Option<PacketDestination> = match packet_destination_id  {
+            0 => {
+                godot_print!("here: {}", self.is_open());
+                None
+            },
+            _ => {
+                Some(PacketDestination::Node(NodeId::new(packet_destination_id as u32)))
+            }
+        };
+        let channel = MeshChannel::new(channel_num as u32).unwrap_or(MeshChannel::new(0).unwrap());
+
+        match self.mpsc_channels.as_ref() {
+            Some(interface) => {
+                let to_radio = interface.to_radio_tx.clone();
+                self.runtime.block_on({
+                        send_text_message(to_radio, text.to_string(), destination, channel, want_ack)
+                    }
+                )
+            }
+            None => {
+                godot_error!("No meshtastic interface connected, message: '{text}' failed to send")
+            }
+        };
+    }
+
+    /// Get length of message queue and return integer length
+    #[func]
+    fn send_raw_message(&mut self, data: PackedByteArray, channel_num: i64, packet_destination_id: i64, sub_port: i64, want_ack: bool) {
+        let destination:Option<PacketDestination> = match packet_destination_id  {
+            0 => {
+                None
+            },
+            _ => {
+                Some(PacketDestination::Node(NodeId::new(packet_destination_id as u32)))
+            }
+        };
+        let channel = MeshChannel::new(channel_num as u32).unwrap_or(MeshChannel::new(0).unwrap());
+
+        match self.mpsc_channels.as_ref() {
+            Some(interface) => {
+                self.runtime.block_on({
+                    send_raw_message(interface.to_radio_tx.clone(), data.to_vec(), destination, channel, PortNum::PrivateApp, sub_port as u16, want_ack)
+                }
+                )
+            }
+            None => {
+                godot_error!("No meshtastic interface connected, raw message failed to send")
+            }
+        };
+    }
+
+    /// return if meshtastic loop is running(node is connected)
     #[func]
     fn is_open(&self) -> bool {
         match &self.mt_loop_join_handle {
             Some(join) => {
+                // if join.is_finished(){
+                //     self.runtime.spawn(async{
+                //         let err = join.;
+                //         godot_error!("is panic: {}", err.is_panic())
+                //     });
+                // }
                 !join.is_finished()
             },
-            None => false,
+            None => false
         }
     }
 
