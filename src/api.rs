@@ -1,9 +1,8 @@
-use std::collections::HashMap;
 use crate::mesh_connection::connection::Connection;
 use crate::mesh_connection::ipc::{IPCMessage, InterfaceIPC, RadioIPC};
 use crate::mesh_connection::mt_node::meshtastic_loop;
-use crate::mesh_connection::util::{get_secs, ComprehensiveNode};
-use crate::mesh_connection::packet_handler::{process_packet, MessageEnvelope, PacketResponse};
+use crate::mesh_connection::util::get_secs;
+use crate::mesh_connection::packet_handler::MessageEnvelope;
 
 use meshtastic::packet::PacketDestination;
 use meshtastic::types::{EncodedMeshPacketData, MeshChannel};
@@ -14,9 +13,9 @@ use meshtastic::Message;
 use meshtastic::protobufs::PortNum;
 
 pub fn create_thread_ipc() -> (InterfaceIPC, RadioIPC) {
-    let (mut fromradio_thread_tx, mut fromradio_thread_rx) =
+    let (fromradio_thread_tx, fromradio_thread_rx) =
         channel::<IPCMessage>(1000);
-    let (mut toradio_thread_tx, mut toradio_thread_rx) =
+    let (toradio_thread_tx, toradio_thread_rx) =
         channel::<IPCMessage>(1000);
     let iface = InterfaceIPC {
         from_radio_rx: fromradio_thread_rx,
