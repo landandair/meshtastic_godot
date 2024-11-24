@@ -11,13 +11,11 @@ use meshtastic::types::{MeshChannel, NodeId};
 use meshtastic::packet::PacketDestination;
 
 use std::collections::HashMap;
-use std::future::{Future, IntoFuture};
 use serialport::SerialPortType;
 use tokio::runtime::{Builder, Runtime};
 use tokio::task::JoinHandle;
 use anyhow::Result;
 use godot::meta::AsArg;
-use godot::sys::join;
 use meshtastic::protobufs::{PortNum, User};
 
 #[derive(GodotClass)]
