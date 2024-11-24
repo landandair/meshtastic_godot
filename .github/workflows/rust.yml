@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: install libudev-sys v0.1.4
-      run: sudo apt-get install -y libudev-sy
+      run: sudo apt-get install -y libudev-sys
     - name: install libxml2-utils
       run: sudo apt-get install -y libxml2-utils
     - name: Build
