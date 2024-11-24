@@ -10,6 +10,7 @@ serialport = "*"
 tokio = { version = "1.10", features = ["rt"] }
 anyhow = "1.0.93"
 strum = "0.26.3"
+thiserror = "2.0.3"
 strum_macros = "0.26.4"
 
 
