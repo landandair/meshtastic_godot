@@ -1,0 +1,52 @@
+[gd_scene load_steps=2 format=3 uid="uid://jeasehr80wqa"]
+
+[ext_resource type="Script" path="res://Example/scripts/main_script.gd" id="1_5yy14"]
+
+[node name="Meshtastic_example_interface" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_5yy14")
+
+[node name="Connect_radio" type="Button" parent="."]
+layout_mode = 0
+offset_left = 506.0
+offset_top = 3.0
+offset_right = 578.0
+offset_bottom = 34.0
+text = "Connect"
+
+[node name="connection_options" type="OptionButton" parent="."]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 2.0
+offset_right = 174.0
+offset_bottom = 33.0
+selected = 0
+fit_to_longest_item = false
+item_count = 2
+popup/item_0/text = "Serial Connection"
+popup/item_1/text = "Ip Connection"
+popup/item_1/id = 1
+
+[node name="Serial_Options" type="OptionButton" parent="."]
+layout_mode = 0
+offset_left = 187.0
+offset_top = 2.0
+offset_right = 493.0
+offset_bottom = 33.0
+
+[node name="Ip_input" type="LineEdit" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 186.0
+offset_top = 2.0
+offset_right = 494.0
+offset_bottom = 33.0
+placeholder_text = "ip(string):port(int)"
+
+[connection signal="pressed" from="Connect_radio" to="." method="_on_connect_radio_pressed"]
+[connection signal="item_selected" from="connection_options" to="." method="_on_connection_options_item_selected"]
+[connection signal="item_selected" from="Serial_Options" to="." method="_on_serial_option_item_selected"]
+[connection signal="text_submitted" from="Ip_input" to="." method="_on_ip_input_text_submitted"]

@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=3 uid="uid://c4g82a6aa5jm4"]
+
+[ext_resource type="PackedScene" uid="uid://jeasehr80wqa" path="res://Example/scenes/meshtastic_example_interface.tscn" id="2_qycbx"]
+
+[node name="Node2D" type="Node2D"]
+
+[node name="Meshtastic_example_interface" parent="." instance=ExtResource("2_qycbx")]
+offset_left = -2.0
+offset_top = -1.0
+offset_right = 1148.0
+offset_bottom = 644.0
+
+[node name="Camera2D" type="Camera2D" parent="."]
+anchor_mode = 0
