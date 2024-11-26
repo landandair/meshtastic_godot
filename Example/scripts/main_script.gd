@@ -1,7 +1,9 @@
 extends Control
 var mt_node = MeshtasticNode.new()
 var radio_settings:String = ""
+var connected = false
 
+@onready var connect_radio = $Connect_radio
 @onready var conn_options = $connection_options
 @onready var selected_type = conn_options.get_item_text(0)
 @onready var serial_menu = $Serial_Options
@@ -19,8 +21,15 @@ func _ready() -> void:
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
-	pass
-	mt_node.poll()
+	# Poll node and check its state and update ui elements accordingly
+	var res = mt_node.poll()
+	connected = res
+	if res and !connect_radio.disabled:  # we are connected
+		connect_radio.disabled = true
+	elif connect_radio.disabled:
+		connect_radio.disabled = false
+		
+	# Replace with checkups for message states
 	if mt_node.get_available_messages():
 		var msg = mt_node.get_message()
 		print(msg)
@@ -48,8 +57,6 @@ func _on_connection_options_item_selected(index: int) -> void:
 	selected_type = item
 	ip_input.visible = !ip_input.visible
 	serial_menu.visible = !serial_menu.visible
-
-	
 
 
 func _on_serial_option_item_selected(index: int) -> void:
