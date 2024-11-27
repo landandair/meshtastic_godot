@@ -5,24 +5,25 @@
 [node name="Meshtastic_example_interface" type="Control"]
 layout_mode = 3
 anchors_preset = 0
-offset_right = 40.0
-offset_bottom = 40.0
+offset_right = 1162.0
+offset_bottom = 644.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
 script = ExtResource("1_5yy14")
 
-[node name="Connect_radio" type="Button" parent="."]
-layout_mode = 0
-offset_left = 506.0
-offset_top = 3.0
-offset_right = 578.0
-offset_bottom = 34.0
-text = "Connect"
+[node name="organizer_box" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="connection_options" type="OptionButton" parent="."]
-layout_mode = 0
-offset_left = 6.0
-offset_top = 2.0
-offset_right = 174.0
-offset_bottom = 33.0
+[node name="connection_box" type="HBoxContainer" parent="organizer_box"]
+layout_mode = 2
+
+[node name="connection_options" type="OptionButton" parent="organizer_box/connection_box"]
+layout_mode = 2
 selected = 0
 fit_to_longest_item = false
 item_count = 2
@@ -30,23 +31,31 @@ popup/item_0/text = "Serial Connection"
 popup/item_1/text = "Ip Connection"
 popup/item_1/id = 1
 
-[node name="Serial_Options" type="OptionButton" parent="."]
-layout_mode = 0
-offset_left = 187.0
-offset_top = 2.0
-offset_right = 493.0
-offset_bottom = 33.0
+[node name="Serial_Options" type="OptionButton" parent="organizer_box/connection_box"]
+layout_mode = 2
 
-[node name="Ip_input" type="LineEdit" parent="."]
+[node name="Ip_input" type="LineEdit" parent="organizer_box/connection_box"]
 visible = false
-layout_mode = 0
-offset_left = 186.0
-offset_top = 2.0
-offset_right = 494.0
-offset_bottom = 33.0
+layout_mode = 2
 placeholder_text = "ip(string):port(int)"
 
-[connection signal="pressed" from="Connect_radio" to="." method="_on_connect_radio_pressed"]
-[connection signal="item_selected" from="connection_options" to="." method="_on_connection_options_item_selected"]
-[connection signal="item_selected" from="Serial_Options" to="." method="_on_serial_option_item_selected"]
-[connection signal="text_submitted" from="Ip_input" to="." method="_on_ip_input_text_submitted"]
+[node name="connect_radio" type="Button" parent="organizer_box/connection_box"]
+layout_mode = 2
+text = "Connect"
+
+[node name="chat_box" type="TextEdit" parent="organizer_box"]
+layout_mode = 2
+size_flags_vertical = 3
+editable = false
+
+[node name="chat_message" type="LineEdit" parent="organizer_box"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+placeholder_text = "Chat Messages"
+max_length = 300
+
+[connection signal="item_selected" from="organizer_box/connection_box/connection_options" to="." method="_on_connection_options_item_selected"]
+[connection signal="item_selected" from="organizer_box/connection_box/Serial_Options" to="." method="_on_serial_option_item_selected"]
+[connection signal="text_submitted" from="organizer_box/connection_box/Ip_input" to="." method="_on_ip_input_text_submitted"]
+[connection signal="pressed" from="organizer_box/connection_box/connect_radio" to="." method="_on_connect_radio_pressed"]
+[connection signal="text_submitted" from="organizer_box/chat_message" to="." method="_on_chat_message_text_submitted"]

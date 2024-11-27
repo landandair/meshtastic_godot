@@ -305,6 +305,19 @@ impl MeshtasticNode{
         }
     }
 
+    /// return if meshtastic loop is running(node is connected)
+    #[func]
+    fn get_connected_id(&self) -> GString {
+        match self.our_node {
+            Some(our_id) => {
+                GString::from(format!("!{our_id:x}"))
+            }
+            None => {
+                GString::new()
+            }
+        }
+    }
+
     /// Close the MeshtasticNode port
     #[func]
     fn close(&mut self) {
