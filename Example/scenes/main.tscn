@@ -2,9 +2,19 @@
 
 [ext_resource type="PackedScene" uid="uid://jeasehr80wqa" path="res://Example/scenes/meshtastic_example_interface.tscn" id="2_qycbx"]
 
-[node name="Node2D" type="Node2D"]
+[node name="Node2D" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 
 [node name="Meshtastic_example_interface" parent="." instance=ExtResource("2_qycbx")]
+clip_contents = true
+layout_mode = 1
 
 [node name="Camera2D" type="Camera2D" parent="."]
 anchor_mode = 0

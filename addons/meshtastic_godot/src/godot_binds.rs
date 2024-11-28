@@ -142,7 +142,6 @@ impl MeshtasticNode{
                                     PacketResponse::InboundMessage(msg) => {
                                         // Put message on queue
                                         self.message_queue.push(msg);
-                                        godot_print!("Msg")
                                     }
                                     PacketResponse::OurAddress(id) => {
                                         self.our_node = Some(id);
@@ -239,12 +238,13 @@ impl MeshtasticNode{
                 Some(PacketDestination::Node(NodeId::new(packet_destination_id as u32)))
             }
         };
+        let mut message_vec = (sub_port as u16).to_le_bytes().to_vec();
+        message_vec.append(&mut data.to_vec());
         let channel = MeshChannel::new(channel_num as u32).unwrap_or(MeshChannel::new(0).unwrap());
-
         match self.mpsc_channels.as_ref() {
             Some(interface) => {
                 self.runtime.block_on({
-                    send_raw_message(interface.to_radio_tx.clone(), data.to_vec(), destination, channel, PortNum::PrivateApp, sub_port as u16, want_ack)
+                    send_raw_message(interface.to_radio_tx.clone(), message_vec, destination, channel, PortNum::PrivateApp, sub_port as u16, want_ack)
                 }
                 )
             }

@@ -196,7 +196,8 @@ pub fn process_packet(
 
                                             }
                                             Some((short_port, payload)) => {
-                                                let sub_port = ((short_port[0] as u16) << 8) | short_port[1] as u16;
+                                                let sub_port = ((short_port[1] as u16) << 8) | short_port[0] as u16;
+                                                let payload = payload.to_vec();
                                                 (sub_port, payload.to_vec())
                                             }
                                         };

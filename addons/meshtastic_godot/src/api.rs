@@ -59,7 +59,7 @@ pub async fn send_raw_message(toradio_thread_tx: Sender<IPCMessage>, message:Vec
                               port_num: PortNum, sub_port: u16, want_ack: bool){
     let packet_destination = packet_destination.unwrap_or(PacketDestination::Broadcast);
     let t = get_secs();
-    let payload = EncodedMeshPacketData::new(message.encode_to_vec());
+    let payload = EncodedMeshPacketData::new(message.to_vec());
     let message = IPCMessage::SendMessage(MessageEnvelope{
         timestamp: t as u32,
         source: None,

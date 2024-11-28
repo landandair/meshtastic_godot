@@ -1,0 +1,91 @@
+[gd_scene load_steps=6 format=3 uid="uid://b2bux1x5tfkf8"]
+
+[ext_resource type="Script" path="res://Example/scripts/subport_tic_tac_toe.gd" id="1_brw57"]
+[ext_resource type="Script" path="res://Example/scripts/server_browser.gd" id="2_1knrh"]
+[ext_resource type="PackedScene" uid="uid://cqspeddt3omis" path="res://Example/scenes/server_list.tscn" id="3_css6x"]
+[ext_resource type="Texture2D" uid="uid://b2dgtk2qht4em" path="res://icon.svg" id="4_3mj3q"]
+[ext_resource type="Script" path="res://Example/scripts/board.gd" id="4_cdwwp"]
+
+[node name="Sub-port Tic-Tac-Toe" type="VBoxContainer"]
+script = ExtResource("1_brw57")
+metadata/_tab_index = 1
+
+[node name="server_settings" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="server_settings"]
+layout_mode = 2
+text = "Sub_port(Server_port): "
+
+[node name="sub_port" type="SpinBox" parent="server_settings"]
+layout_mode = 2
+max_value = 65535.0
+custom_arrow_step = 1.0
+
+[node name="host" type="CheckButton" parent="server_settings"]
+layout_mode = 2
+text = "Host"
+
+[node name="game_server_browser" type="HSplitContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="server_browser" type="VBoxContainer" parent="game_server_browser"]
+layout_mode = 2
+script = ExtResource("2_1knrh")
+serverInfo = ExtResource("3_css6x")
+
+[node name="CenterContainer" type="CenterContainer" parent="game_server_browser"]
+layout_mode = 2
+
+[node name="board" type="GridContainer" parent="game_server_browser/CenterContainer"]
+layout_mode = 2
+columns = 3
+script = ExtResource("4_cdwwp")
+
+[node name="top_left" type="TextureButton" parent="game_server_browser/CenterContainer/board"]
+layout_mode = 2
+texture_normal = ExtResource("4_3mj3q")
+
+[node name="top_center" type="TextureButton" parent="game_server_browser/CenterContainer/board"]
+layout_mode = 2
+texture_normal = ExtResource("4_3mj3q")
+
+[node name="top_right" type="TextureButton" parent="game_server_browser/CenterContainer/board"]
+layout_mode = 2
+texture_normal = ExtResource("4_3mj3q")
+
+[node name="left_center" type="TextureButton" parent="game_server_browser/CenterContainer/board"]
+layout_mode = 2
+texture_normal = ExtResource("4_3mj3q")
+
+[node name="center" type="TextureButton" parent="game_server_browser/CenterContainer/board"]
+layout_mode = 2
+texture_normal = ExtResource("4_3mj3q")
+
+[node name="right_center" type="TextureButton" parent="game_server_browser/CenterContainer/board"]
+layout_mode = 2
+texture_normal = ExtResource("4_3mj3q")
+
+[node name="lower_left" type="TextureButton" parent="game_server_browser/CenterContainer/board"]
+layout_mode = 2
+texture_normal = ExtResource("4_3mj3q")
+
+[node name="lower_center" type="TextureButton" parent="game_server_browser/CenterContainer/board"]
+layout_mode = 2
+texture_normal = ExtResource("4_3mj3q")
+
+[node name="lower_right" type="TextureButton" parent="game_server_browser/CenterContainer/board"]
+layout_mode = 2
+texture_normal = ExtResource("4_3mj3q")
+
+[node name="server_advertisment" type="Timer" parent="."]
+wait_time = 10.0
+
+[node name="retransmission_timer" type="Timer" parent="."]
+wait_time = 10.0
+
+[connection signal="toggled" from="server_settings/host" to="." method="_on_host_toggled"]
+[connection signal="joinGame" from="game_server_browser/server_browser" to="." method="_on_server_browser_join_game"]
+[connection signal="timeout" from="server_advertisment" to="." method="_on_server_advertisment_timeout"]
+[connection signal="timeout" from="retransmission_timer" to="." method="_on_retransmission_timer_timeout"]
