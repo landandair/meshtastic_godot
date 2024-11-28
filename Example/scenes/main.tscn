@@ -5,10 +5,6 @@
 [node name="Node2D" type="Node2D"]
 
 [node name="Meshtastic_example_interface" parent="." instance=ExtResource("2_qycbx")]
-offset_left = -2.0
-offset_top = -1.0
-offset_right = 1148.0
-offset_bottom = 644.0
 
 [node name="Camera2D" type="Camera2D" parent="."]
 anchor_mode = 0
