@@ -1,12 +1,16 @@
-[gd_scene load_steps=2 format=3 uid="uid://jeasehr80wqa"]
+[gd_scene load_steps=4 format=3 uid="uid://jeasehr80wqa"]
 
 [ext_resource type="Script" path="res://Example/scripts/main_script.gd" id="1_5yy14"]
+[ext_resource type="PackedScene" uid="uid://cubed0lr3x8bp" path="res://Example/scenes/text_client.tscn" id="2_6ckia"]
+[ext_resource type="PackedScene" uid="uid://b2bux1x5tfkf8" path="res://Example/scenes/sub_port_tic_tac_toe.tscn" id="3_3otqy"]
 
 [node name="Meshtastic_example_interface" type="Control"]
 layout_mode = 3
-anchors_preset = 0
-offset_right = 1162.0
-offset_bottom = 644.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 script = ExtResource("1_5yy14")
@@ -43,19 +47,20 @@ placeholder_text = "ip(string):port(int)"
 layout_mode = 2
 text = "Connect"
 
-[node name="chat_box" type="TextEdit" parent="organizer_box"]
+[node name="TabContainer" type="TabContainer" parent="organizer_box"]
 layout_mode = 2
 size_flags_vertical = 3
-editable = false
+current_tab = 1
 
-[node name="chat_message" type="LineEdit" parent="organizer_box"]
-custom_minimum_size = Vector2(0, 50)
+[node name="Text Client" parent="organizer_box/TabContainer" instance=ExtResource("2_6ckia")]
 layout_mode = 2
-placeholder_text = "Chat Messages"
-max_length = 300
+
+[node name="Sub-port Tic-Tac-Toe" parent="organizer_box/TabContainer" instance=ExtResource("3_3otqy")]
+layout_mode = 2
 
 [connection signal="item_selected" from="organizer_box/connection_box/connection_options" to="." method="_on_connection_options_item_selected"]
 [connection signal="item_selected" from="organizer_box/connection_box/Serial_Options" to="." method="_on_serial_option_item_selected"]
 [connection signal="text_submitted" from="organizer_box/connection_box/Ip_input" to="." method="_on_ip_input_text_submitted"]
 [connection signal="pressed" from="organizer_box/connection_box/connect_radio" to="." method="_on_connect_radio_pressed"]
-[connection signal="text_submitted" from="organizer_box/chat_message" to="." method="_on_chat_message_text_submitted"]
+[connection signal="new_text_to_send" from="organizer_box/TabContainer/Text Client" to="." method="_on_text_client_new_text_to_send"]
+[connection signal="new_data_to_send" from="organizer_box/TabContainer/Sub-port Tic-Tac-Toe" to="." method="_on_subport_tic_tac_toe_new_data_to_send"]

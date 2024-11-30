@@ -1,0 +1,21 @@
+[gd_scene load_steps=2 format=3 uid="uid://cubed0lr3x8bp"]
+
+[ext_resource type="Script" path="res://Example/scripts/text_client.gd" id="1_3t422"]
+
+[node name="Text Client" type="VBoxContainer"]
+visible = false
+script = ExtResource("1_3t422")
+metadata/_tab_index = 0
+
+[node name="chat_box" type="TextEdit" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+editable = false
+
+[node name="chat_message" type="LineEdit" parent="."]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+placeholder_text = "Chat Messages"
+max_length = 300
+
+[connection signal="text_submitted" from="chat_message" to="." method="_on_chat_message_text_submitted"]
