@@ -1,11 +1,10 @@
 extends VBoxContainer
 
 signal new_data_to_send(sub_port: int, data: PackedByteArray)
-var message_queue = []
 var connected_server = -1
 var move_number = 0
 var is_turn = false
-var game_started = false
+var team_char = ""
 var need_ack = false
 var retries = 3
 var attempts = 0
@@ -22,6 +21,9 @@ var ack_move = "Tica".to_ascii_buffer()
 @onready var advertisement = $server_advertisment
 @onready var server_browser = $game_server_browser/server_browser
 @onready var board = $game_server_browser/CenterContainer/board
+@onready var result_label = $server_settings/result
+@onready var reset = $server_settings/reset
+
 
 func _ready() -> void:
 	sub_port.value = randi_range(0, 65535)
@@ -36,7 +38,10 @@ func process_message(name, port: int, data: PackedByteArray):
 		join_str:  # Received request to join hosted server
 			if port == sub_port.value and not advertisement.is_stopped():
 				print("Someone joined server")
+				connected_server = port
 				is_turn = false
+				result_label.text = "Game Started"
+				team_char = "O"
 				host.button_pressed = false
 				advertisement.stop()
 				send_data(port, ackjoin_str, true)
@@ -46,19 +51,22 @@ func process_message(name, port: int, data: PackedByteArray):
 				advertisement.stop()  # Stop hosting if started
 				host.button_pressed = false
 				need_ack = false
+				result_label.text = "Game Started"
+				team_char = "X"
 				is_turn = true
+				board.set_cells_enable(true)
 				# Prepare to send first move
 		move_str:  # Received move from player
+			print("Move?", port, connected_server, not is_turn)
 			if port == connected_server and not is_turn:
 				print("We received a move")
 				if len(remains) == 2:
 					var move_num = remains[0]
 					var move = remains[-1]
-					if move_num == move_number:
-						board.process_move(int(move))
+					var result = board.process_move(int(move), move_num)
+					if result:
 						send_data(port, ack_move+remains)
 						is_turn = true
-						# Prepare to send first move
 		ack_move:
 			if port == connected_server:
 				print("Ack move stop retransmitting last move")
@@ -101,3 +109,29 @@ func _on_host_toggled(toggled_on: bool) -> void:
 		advertise_server()
 	else:
 		advertisement.stop()
+
+func _on_board_send_move(move: int, num: int) -> void:
+	var data = move_str.duplicate()
+	data.append(num)
+	data.append(move)
+	is_turn = false
+	send_data(connected_server, data, true)
+
+
+func _on_board_match_finished(result: Variant) -> void:
+	var winner = result[0]
+	if winner == team_char:
+		result_label.text = "We won"
+	elif winner == "Draw":
+		result_label.text = "Draw"
+	else:
+		result_label.text = "We Lost"
+
+
+func _on_reset_pressed() -> void:
+	connected_server = -1
+	move_number = 0
+	is_turn = false
+	team_char = ""
+	result_label.text = ""
+	board._ready()

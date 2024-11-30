@@ -3,10 +3,6 @@ extends VBoxContainer
 signal joinGame(name:String, port:int)
 
 @export var serverInfo : PackedScene
-# Called when the node enters the scene tree for the first time.
-func _ready() -> void:
-	new_server_message("test", 1234)  # REMOVE
-
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:

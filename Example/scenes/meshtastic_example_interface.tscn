@@ -50,14 +50,12 @@ text = "Connect"
 [node name="TabContainer" type="TabContainer" parent="organizer_box"]
 layout_mode = 2
 size_flags_vertical = 3
-current_tab = 0
+current_tab = 1
 
 [node name="Text Client" parent="organizer_box/TabContainer" instance=ExtResource("2_6ckia")]
-visible = true
 layout_mode = 2
 
 [node name="Sub-port Tic-Tac-Toe" parent="organizer_box/TabContainer" instance=ExtResource("3_3otqy")]
-visible = false
 layout_mode = 2
 
 [connection signal="item_selected" from="organizer_box/connection_box/connection_options" to="." method="_on_connection_options_item_selected"]
