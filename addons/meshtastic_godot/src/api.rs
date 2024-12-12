@@ -9,7 +9,6 @@ use meshtastic::types::{EncodedMeshPacketData, MeshChannel};
 
 use tokio::sync::mpsc::{channel, Sender};
 use anyhow::{Result};
-use meshtastic::Message;
 use meshtastic::protobufs::PortNum;
 
 pub fn create_thread_ipc() -> (InterfaceIPC, RadioIPC) {

@@ -16,3 +16,6 @@ strum_macros = "0.26.4"
 
 [lib]
 crate-type = ["cdylib"]
+
+[profile.dev]
+opt-level = 3
