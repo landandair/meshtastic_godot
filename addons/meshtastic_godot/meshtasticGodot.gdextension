@@ -4,15 +4,17 @@ compatibility_minimum = 4.1
 reloadable = true
 
 [libraries]
-macos.debug = "res://addons/meshtastic_godot/target/debug/libmeshtastic_godot.dylib"
-macos.release = "res://addons/meshtastic_godot/target/debug/libmeshtastic_godot.dylib"
-windows.debug.x86_32 = "res://addons/meshtastic_godot/target/debug/libmeshtastic_godot.dylib"
-windows.release.x86_32 = "res://addons/meshtastic_godot/target/debug/libmeshtastic_godot.dylib"
-windows.debug.x86_64 = "res://addons/meshtastic_godot/target/debug/libmeshtastic_godot.dylib"
-windows.release.x86_64 = "res://addons/meshtastic_godot/target/debug/libmeshtastic_godot.dylib"
-linux.debug.x86_64 = "res://addons/meshtastic_godot/target/debug/libmeshtastic_godot.dylib"
-linux.release.x86_64 = "res://addons/meshtastic_godot/target/debug/libmeshtastic_godot.dylib"
-linux.debug.arm64 = "res://addons/meshtastic_godot/target/debug/libmeshtastic_godot.dylib"
-linux.release.arm64 = "res://addons/meshtastic_godot/target/debug/libmeshtastic_godot.dylib"
-linux.debug.rv64 = "res://addons/meshtastic_godot/target/debug/libmeshtastic_godot.dylib"
-linux.release.rv64 = "res://addons/meshtastic_godot/target/debug/libmeshtastic_godot.dylib"
+macos.debug = "res://addons/meshtastic_godot/target/release/libmeshtastic_godot.dylib"
+macos.release = "res://addons/meshtastic_godot/target/release/libmeshtastic_godot.dylib"
+
+windows.debug.x86_32 = "res://addons/meshtastic_godot/target/release/libmeshtastic_godot.x86_32.dll"
+windows.release.x86_32 = "res://addons/meshtastic_godot/target/release/libmeshtastic_godot.x86_32.dll"
+windows.debug.x86_64 = "res://addons/meshtastic_godot/target/release/libmeshtastic_godot.x86_64.dll"
+windows.release.x86_64 = "res://addons/meshtastic_godot/target/release/libmeshtastic_godot.x86_64.dll"
+
+linux.debug.x86_64 = "res://addons/meshtastic_godot/target/release/libmeshtastic_godot.x86_64.so"
+linux.release.x86_64 = "res://addons/meshtastic_godot/target/release/libmeshtastic_godot.x86_64.so"
+linux.debug.arm64 = "res://addons/meshtastic_godot/target/release/libmeshtastic_godot.arm64.so"
+linux.release.arm64 = "res://addons/meshtastic_godot/target/release/libmeshtastic_godot.arm64.so"
+linux.debug.rv64 = "res://addons/meshtastic_godot/target/release/libmeshtastic_godot.rv64.so"
+linux.release.rv64 = "res://addons/meshtastic_godot/target/release/libmeshtastic_godot.rv64.so"
